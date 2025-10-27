@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="fr">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Reconnaissance Faciale - Interface Web</title>
+  <style>
+    :root {
+      --bg: #f4f6fa;
+      --card-bg: #fff;
+      --border: #dce1e6;
+      --primary: #0066ff;
+      --accent: #2b2d42;
+      --success: #00b894;
+      --warning: #ffb142;
+      --error: #ff4757;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--accent);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      background: var(--primary);
+      color: white;
+      width: 100%;
+      padding: 20px 0;
+      text-align: center;
+      font-size: 1.6em;
+      font-weight: bold;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    main {
+      width: 90%;
+      max-width: 1200px;
+      margin-top: 30px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    section {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    h2 {
+      margin-top: 0;
+      font-size: 1.2em;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    .video-container,
+    .result-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #live {
+      width: 100%;
+      max-width: 640px;
+      height: auto;
+      border-radius: var(--radius);
+      border: 2px solid var(--primary);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      background: #000;
+    }
+
+    #preview {
+      width: 100%;
+      max-width: 640px;
+      border-radius: var(--radius);
+      border: 2px solid var(--success);
+      background: #000;
+    }
+
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 1em;
+      transition: 0.2s ease;
+    }
+
+    button:hover {
+      background: #0049b8;
+    }
+
+    #status {
+      margin-left: 10px;
+      font-weight: 500;
+    }
+
+    #log {
+      max-height: 400px;
+      overflow-y: auto;
+      background: #fafafa;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px;
+      font-size: 0.9em;
+      white-space: nowrap;
+    }
+
+    .log-row {
+      padding: 4px 0;
+      border-bottom: 1px dashed #ddd;
+    }
+
+    footer {
+      margin-top: 30px;
+      padding: 10px;
+      font-size: 0.9em;
+      color: #777;
+    }
+
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>🔍 Reconnaissance Faciale</header>
+
+  <main>
+    <!-- Section 1 : Flux vidéo -->
+    <section>
+      <h2>Flux Vidéo en Direct</h2>
+      <div class="video-container">
+        <!-- Remplace l’IP/PORT ci-dessous par ton flux -->
+        <img id="preview" alt="capture" style="width:640px;height:auto;">
+        <div>
+          <button id="btnCapture">📸 Capturer & Reconnaître</button>
+          <span id="status">En attente...</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2 : Résultat -->
+    <section>
+      <h2>Résultat de la Reconnaissance</h2>
+      <div class="result-container">
+        <img id="preview" src="" alt="Image reconnue" />
+        <div id="info"></div>
+      </div>
+    </section>
+
+    <!-- Section 3 : Log -->
+    <section style="grid-column: 1 / span 2;">
+      <h2>Historique des Captures</h2>
+      <div id="log">Chargement...</div>
+    </section>
+  </main>
+
+  <footer>© 2025 Système de Reconnaissance Faciale – Prototype</footer>
+
+  <script>
+    const btn = document.getElementById('btnCapture');
+    const status = document.getElementById('status');
+    const preview = document.getElementById('preview');
+    const info = document.getElementById('info');
+    const logDiv = document.getElementById('log');
+
+    btn.onclick = async () => {
+      status.textContent = "Capture en cours...";
+      btn.disabled = true;
+      try {
+        const res = await fetch('/recognize', {method: 'POST'});
+        const data = await res.json();
+
+        if (!data.ok) {
+          status.textContent = "Erreur: " + (data.error || "inconnue");
+          return;
+        }
+
+        if (!data.face) {
+          status.textContent = "Aucun visage détecté.";
+          preview.src = "";
+          fetchLog();
+          return;
+        }
+
+        status.textContent = "✅ " + data.label + " (score=" + data.score.toFixed(3) + ")";
+        preview.src = '/latest_image/' + encodeURIComponent(data.fname) + '?t=' + Date.now();
+        info.innerHTML = `<strong>Personne:</strong> ${data.label}<br><strong>Similarité:</strong> ${(data.score * 100).toFixed(1)}%`;
+        fetchLog();
+      } catch (err) {
+        status.textContent = "Erreur réseau.";
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+      }
+    };
+
+    async function fetchLog() {
+      try {
+        const res = await fetch('/log');
+        const j = await res.json();
+        if (j.ok) {
+          const lines = j.log.slice(-30).reverse();
+          logDiv.innerHTML = lines.map(l =>
+            `<div class="log-row">${l.join(' ; ')}</div>`
+          ).join('');
+        } else {
+          logDiv.textContent = 'Erreur lors du chargement du log';
+        }
+      } catch {
+        logDiv.textContent = 'Erreur de connexion au serveur';
+      }
+    }
+
+    setInterval(fetchLog, 6000);
+    fetchLog();
+
+
+
+    const USER = "mit";
+    const PWD = "123456";
+    const SHOT_URL = "http://192.168.10.181:5001/shot.jpg"; // ou ton URL
+
+    function basicAuthHeader(user, pass) {
+      return 'Basic ' + btoa(user + ":" + pass);
+    }
+
+    async function fetchShotAndShow() {
+      try {
+        const res = await fetch(SHOT_URL, {
+          method: 'GET',
+          headers: {
+            'Authorization': basicAuthHeader(USER, PWD)
+          },
+          mode: 'cors', // si IP Webcam autorise CORS (Access-Control-Allow-Origin)
+          cache: 'no-store'
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const img = document.getElementById('preview');
+        // libérer l'URL précédente si nécessaire
+        if (img._currentObjectURL) URL.revokeObjectURL(img._currentObjectURL);
+        img._currentObjectURL = url;
+        img.src = url;
+      } catch (err) {
+        console.error('Erreur fetch shot:', err);
+      }
+    }
+
+    // Exemple : rafraîchir toutes les 2s
+    setInterval(fetchShotAndShow, 2000);
+    fetchShotAndShow();
+
+  </script>
+</body>
+
+</html>
